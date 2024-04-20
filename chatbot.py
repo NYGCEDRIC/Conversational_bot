@@ -1,55 +1,49 @@
 import streamlit as st
+from streamlit_chat import message
+# from langchain.chat_models import ChatOpenAI
 from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
+#from langchain_anthropic import ChatAnthropic
 from langchain.chains import ConversationChain
 from langchain.chains.conversation.memory import ConversationBufferWindowMemory
 
-# Initialize session state variables for message history and memory buffer
+import os
+
+#os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
+
+# Initialize session state variables
 if 'buffer_memory' not in st.session_state:
     st.session_state.buffer_memory = ConversationBufferWindowMemory(k=3, return_messages=True)
 
-if "messages" not in st.session_state.keys():
+if "messages" not in st.session_state.keys(): # Initialize the chat message history
     st.session_state.messages = [
-        {"role": "assistant", "content": "Welcome! How can I help you today?"}
+        {"role": "assistant", "content": "How can I help you today?"}
     ]
 
-# Initialize the language model (assuming API key is securely loaded from Streamlit secrets)
-llm = ChatOpenAI(model="gpt-4", api_key=st.secrets["OPENAI_API_KEY"])  # Specify the model to use
+# Initialize ChatOpenAI and ConversationChain
+#llm = ChatOpenAI(model_name="gpt-3.5-turbo-0125")
+llm = ChatGoogleGenerativeAI(model = "gemini-pro")
+# llm = ChatAnthropic(model_name="claude-3-sonnet-20240229")
+
 conversation = ConversationChain(memory=st.session_state.buffer_memory, llm=llm)
 
-# User interface setup
-st.title("🗣️ Multilingual Translation Chatbot")
-st.subheader("Communicate seamlessly across diverse languages")
+# Create user interface
+st.title("🗣️ Conversational Chatbot")
+st.subheader("㈻ Simple Chat Interface for LLMs by Cedric and Chisunta")
 
-# Language selection for translation
-languages = {
-    "French": "fr",
-    "Spanish": "es",
-    "German": "de",
-    "Chinese": "zh",
-    "Japanese": "ja",
-    "English": "en",
-    "Kinyarwanda": "rw",
-    "Swahili": "sw",
-    "Hindi": "hi"
-}
-target_language = st.selectbox("Select the target language:", list(languages.keys()))
 
-# Input from the user
-if prompt := st.text_input("Enter your message:"):
+if prompt := st.chat_input("Your question"): # Prompt for user input and save to chat history
     st.session_state.messages.append({"role": "user", "content": prompt})
 
-# Display the conversation history
-for message in st.session_state.messages:
-    with st.container():
-        st.write(f"{message['role'].capitalize()}: {message['content']}")
+for message in st.session_state.messages: # Display the prior chat messages
+    with st.chat_message(message["role"]):
+        st.write(message["content"])
 
-# Translate and generate responses
+# If last message is not from assistant, generate a new response
 if st.session_state.messages[-1]["role"] != "assistant":
-    with st.container():
-        with st.spinner("Translating and responding..."):
-            # Create a refined prompt for translation
-            refined_prompt = f"Translate the following English text to {target_language}: '{prompt}'"
-            translated_prompt = llm.generate(refined_prompt)
-            response = conversation.predict(input=translated_prompt)
-            st.write(f"Assistant (in {target_language}): {response}")
-            st.session_state.messages.append({"role": "assistant", "content": response})
+    with st.chat_message("assistant"):
+        with st.spinner("Thinking..."):
+            response = conversation.predict(input = prompt)
+            st.write(response)
+            message = {"role": "assistant", "content": response}
+            st.session_state.messages.append(message) # Add response to message history
